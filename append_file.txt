@@ -1,0 +1,129 @@
+include irvine32.inc
+include macros.inc
+
+BufSize = 100            ; size of buffer
+
+.data
+
+filename BYTE "new_FILE1.txt", 0    ; file name
+fileHandle HANDLE ?
+
+str1 BYTE BufSize DUP(0)    ; buffer for input string
+str2 BYTE BufSize DUP(0)    ; buffer for input string
+str3 BYTE BufSize DUP(0)    ; buffer for concatenated string with newlines
+
+lstr1 dd ?                  ; length of the first string
+lstr2 dd ?                  ; length of the second string
+lstr3 dd ?                  ; length of the third string
+
+chh dd ?                    ; variable to hold user choice
+
+newline BYTE 0Dh, 0Ah, 0    ; string to add a newline (CRLF)
+
+.code
+
+read proc
+
+    ; Open the file for reading
+    mov edx, OFFSET filename     ; get file name
+    call OpenInputFile            ; open the file
+    mov fileHandle, eax           ; store the file handle
+
+    ; Read from the file
+    mov edx, OFFSET str1          ; get buffer address
+    mov ecx, BufSize              ; get buffer size
+    call ReadFromFile             ; read from file
+
+    ; Store the number of bytes read
+    mov lstr1, eax                ; get number of bytes read
+
+    ; Close the file after reading
+    mov eax, fileHandle
+    call CloseFile
+
+    ret
+read endp
+
+main proc
+
+    ; Display menu options to the user
+    mwrite "Press 1 to write to a file",0
+    call crlf
+    mwrite "Press 2 to read from a file",0
+    call crlf
+    mwrite "Press 3 to exit :- ",0
+    call readint
+    mov chh, eax
+
+    .if chh == 1
+         
+        call read
+        ; Create or open a file for writing
+        mov edx, OFFSET filename     ; get file name
+        call CreateOutputFile        ; create or open the file
+        mov fileHandle, eax           ; store the file handle
+
+        ; Prompt the user to input a string to write to the file
+        mwrite "Enter a string to write to the file: ", 0
+        mov edx, OFFSET str2          ; get the buffer address for input
+        mov ecx, BufSize              ; specify the maximum input size
+        call readstring               ; read user input
+        mov lstr2, eax                ; store the length of the input string
+
+        ; Concatenate str1 and str2 into str3 with newline separation
+
+        ; Copy str1 to str3
+        mov esi, offset str1          ; Source: str1
+        mov edi, offset str3          ; Destination: str3
+        mov ecx, lstr1                ; Number of bytes to copy
+        rep movsb                     ; Copy bytes from str1 to str3
+
+
+        ; Copy the second string from str2 to str3 (after the first string)
+        mov esi, offset str2          ; Source: str2
+        mov ecx, lstr2                ; Number of bytes to copy
+        rep movsb                     ; Copy bytes from str2 to str3
+
+        ; Append newline after the second string
+        mov esi, offset newline       ; Source: newline characters
+        mov ecx, 2                    ; Length of CRLF (0Dh, 0Ah)
+        rep movsb                     ; Copy CRLF to str3
+
+        ; Calculate the length of the third string
+        mov eax, lstr1
+        add eax, lstr2
+        add eax, 2                    ; Include the two newlines (each is 2 bytes)
+        mov lstr3, eax
+
+        ; Write the concatenated string with newlines to the file
+        mov edx, OFFSET str3          ; get buffer address
+        mov ecx, lstr3                ; get the actual length of the concatenated string
+        mov eax, fileHandle           ; get file handle
+        call WriteToFile              ; write to file
+
+        ; Close the file after writing
+        mov eax, fileHandle
+        call CloseFile
+        call crlf
+        ; Display the written string
+        mwrite "String written to the file: ", 0
+        mov edx, OFFSET str2          ; get buffer address
+        call WriteString              ; display the concatenated string
+        call crlf 
+
+    .elseif chh == 2
+        
+        call crlf
+        ; Read the file again to verify the write operation
+        call read
+        mov edx, OFFSET str1          ; get buffer address
+        call WriteString              ; display the string
+        call crlf 
+
+    .else
+        exit
+    .endif
+
+    exit
+main endp
+end main
